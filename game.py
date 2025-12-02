@@ -2,6 +2,7 @@ import pygame
 from config import *
 from player import Player
 from enemy import Asteroid
+from explosion import Explosion
 from background import ScrollingBackground
 import random
 
@@ -18,6 +19,9 @@ class Game:
         
         # Sfondo scrollante
         self.background = ScrollingBackground(self.background_group)
+
+        # Esplosione
+        self.explosions = pygame.sprite.Group()
         
         # Giocatore
         self.player = Player(self.all_sprites)
@@ -32,6 +36,7 @@ class Game:
         self.font = pygame.font.Font(None, 36)
         self.game_over = False
         self.game_over_time = 0
+        self.player_hit = False  # Flag per sapere se la navicella è stata colpita
     
     def spawn_asteroids(self, count=3):
         """Genera asteroidi"""
@@ -50,6 +55,17 @@ class Game:
         # Aggiorna sfondo
         self.background.update()
         
+        # Aggiorna tutti gli sprite (incluse esplosioni)
+        self.all_sprites.update()
+        self.explosions.update()
+        
+        # Se la navicella è stata colpita, aspetta che l'esplosione finisca
+        if self.player_hit:
+            self.game_over_time += 1
+            if self.game_over_time > 60:  # Aspetta 1 secondo
+                self.game_over = True
+            return
+        
         if self.game_over:
             self.game_over_time += 1
             return
@@ -58,12 +74,11 @@ class Game:
         self.time_survived += 1
         self.score = self.time_survived // 60  # Punteggio in secondi
         
-        # Aggiorna tutti gli sprite
-        self.all_sprites.update()
-        
         # Controllo collisioni: asteroidi vs giocatore
         if pygame.sprite.spritecollide(self.player, self.asteroids, False):
-            self.game_over = True
+            explosion = Explosion(self.player.rect.centerx, self.player.rect.centery, self.all_sprites, self.explosions)
+            self.player.kill()
+            self.player_hit = True
             self.game_over_time = 0
         
         # Spawn asteroidi periodici (aumenta con il tempo)
@@ -82,6 +97,7 @@ class Game:
         
         # Disegna sprite
         self.all_sprites.draw(self.screen)
+        self.explosions.draw(self.screen)
         
         # UI
         score_text = self.font.render(f"Tempo: {self.score}s", True, WHITE)
